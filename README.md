@@ -9,7 +9,7 @@
 - Learned that OCR converts scanned images to machine-readable text
 - Identified challenges in recognizing handwritten content, diagrams, and equations due to layout complexity and noise
 
-
+---
 
 ### Day 2: Documentation of OCR Learnings  
 **Task**:  
