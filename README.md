@@ -35,7 +35,7 @@
 
 ### Day 5: Documentation of Git and GitHub  
 **Task**:  
-- Create  Day 3 & 4 insight's documentation
+- Documentation of Day 3&4 insight
 - Push all content to GitHub with a clear structure and professional README
 
 **Insights**:  
