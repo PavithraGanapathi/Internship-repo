@@ -1,23 +1,15 @@
-
 import streamlit as st
 import fitz  # PyMuPDF
 import numpy as np
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-
-processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
-model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
-
-processor.save_pretrained("trocr_model")
-model.save_pretrained("trocr_model")
-
 from PIL import Image, ImageEnhance
 import pandas as pd
 import cv2
 from typing import List
-# --- DATASET FOLDER (Desktop with per-paper subfolders) ---
 import os
+import shutil  # <-- added for zipping
 
-# Base dataset folder on Desktop
+# --- DATASET FOLDER (Desktop with per-paper subfolders) ---
 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
 dataset_folder = os.path.join(desktop, "dataset")
 os.makedirs(dataset_folder, exist_ok=True)
@@ -33,6 +25,23 @@ def get_paper_folder(filename: str) -> str:
     return paper_folder
                  # create if not exists
 
+# --- ZIP DOWNLOAD FUNCTION ---
+def make_download_button(pdf_filename):
+    """Zip the folder for the current PDF and provide a download button"""
+    base_name = os.path.splitext(pdf_filename)[0]
+    paper_folder = os.path.join(dataset_folder, base_name)
+
+    # Create a zip only for this PDF's folder
+    zip_path = shutil.make_archive(base_name, 'zip', paper_folder)
+
+    # Provide download button
+    with open(zip_path, "rb") as f:
+        st.download_button(
+            f"Download Cropped Images for {pdf_filename}",
+            f,
+            file_name=f"{base_name}.zip",
+            mime="application/zip"
+        )
 
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
@@ -40,10 +49,11 @@ st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
 # --- LOAD OCR MODEL ---
 @st.cache_resource
 def load_model():
-    processor = TrOCRProcessor.from_pretrained("trocr_model")
-    model = VisionEncoderDecoderModel.from_pretrained("trocr_model")
+    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+    model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
     return processor, model
 
+processor, model = load_model()
 
 # --- SEGMENTATION LOGIC ---
 def segment_lines_opencv(image: Image.Image) -> List[Image.Image]:
@@ -85,7 +95,6 @@ if "line_index" not in st.session_state:
     st.session_state.line_index = 0
 if "show_all_lines" not in st.session_state:
     st.session_state.show_all_lines = False
-# FIX: dedicated store for OCR texts to avoid polluting session_state
 if "ocr_texts" not in st.session_state:
     st.session_state.ocr_texts = {}
 
@@ -133,17 +142,15 @@ if current_file:
     selected_img = images[page_num - 1]
 
     # --- SEGMENTATION ---
-   
     with st.spinner("Segmenting lines..."):
         lines = segment_lines_opencv(selected_img)
 
-# --- FILTER ONLY SINGLE-LINE SEGMENTS ---
-    MIN_HEIGHT = 15   # adjust based on your dataset
-    MAX_HEIGHT = 100  # adjust based on your dataset
+    # --- FILTER ONLY SINGLE-LINE SEGMENTS ---
+    MIN_HEIGHT = 15
+    MAX_HEIGHT = 100
     filtered_lines = [line for line in lines if MIN_HEIGHT <= line.height <= MAX_HEIGHT]
 
     total_lines = len(filtered_lines)
-
 
     # --- TOGGLE: SHOW ALL LINES ---
     st.sidebar.markdown("**Line Display**")
@@ -158,42 +165,32 @@ if current_file:
     else:
         st.markdown("### Segmented Lines and OCR Text")
 
-        # FIX: choose base index correctly when showing all lines
         base_index = 0 if st.session_state.show_all_lines else st.session_state.line_index
-       # display_lines = lines if st.session_state.show_all_lines else lines[base_index:base_index + 5]
         display_lines = filtered_lines if st.session_state.show_all_lines else filtered_lines[base_index:base_index + 5]
-
 
         # --- Batch Progress Bar ---
         progress_placeholder = st.empty()
         progress_bar = progress_placeholder.progress(0)
 
         for i, line_img in enumerate(display_lines):
-            # update progress as 0-100 int
             progress_bar.progress(int(((i + 1) / len(display_lines)) * 100))
 
-            # FIX: consistent and correct line numbering
             global_line_num = base_index + i + 1
             line_id = f"{current_file.name}_page{page_num:03d}_line{global_line_num:03d}"
 
-            # Run OCR once and store it safely
             if line_id not in st.session_state.ocr_texts:
                 st.session_state.ocr_texts[line_id] = run_ocr(line_img)
 
             with st.container():
                 st.markdown(f"**Line {global_line_num}** — ID: `{line_id}`")
 
-                # Enhance contrast and resize safely without distortion
                 enhancer = ImageEnhance.Contrast(line_img)
                 enhanced_img = enhancer.enhance(2.5)
 
-                # FIX: preserve aspect ratio with a reasonable bound
                 resized_img = enhanced_img.copy()
-                resized_img.thumbnail((700, 300))  # max width 700px, max height 300px
+                resized_img.thumbnail((700, 300))
                 st.image(resized_img)
 
-                # Use OCR text as initial value; widget state kept in its own key
-               
                 st.text_area(
                     "Corrected Text",
                     value=st.session_state.ocr_texts[line_id],
@@ -201,22 +198,14 @@ if current_file:
                     height=80
                 )
 
-                # always fetch the latest text the user typed
-                
-                
-                    # update or insert safely
-                
-                    # Always keep OCR store in sync with latest edit
                 corrected_text = st.session_state[f"text_{line_id}"]
                 st.session_state.ocr_texts[line_id] = corrected_text
 
-# --- SAVE LINE IMAGE ---
+                # --- SAVE LINE IMAGE ---
                 paper_folder = get_paper_folder(current_file.name)
                 image_path = os.path.join(paper_folder, f"{line_id}.png")
                 line_img.save(image_path)
 
-
-# update or insert safely into labeled_lines
                 existing = next((item for item in st.session_state.labeled_lines if item["line_id"] == line_id), None)
                 if existing:
                     existing["corrected_text"] = corrected_text
@@ -229,11 +218,10 @@ if current_file:
                         "image_path": image_path
                     })
 
-
-
-
-
         progress_placeholder.empty()  # Remove progress bar when done
+
+        # --- ZIP DOWNLOAD BUTTON FOR CROPPED IMAGES ---
+        make_download_button(current_file.name)
 
         # --- LINE SET NAVIGATION ---
         if not st.session_state.show_all_lines:
@@ -250,7 +238,6 @@ if current_file:
     # --- EXPORT SECTION ---
     st.markdown("### Export Corrected Labels")
     if st.session_state.labeled_lines:
-        # FIX: keep only entries for the current file and latest edit per line_id
         cur_rows = [r for r in st.session_state.labeled_lines if r["filename"] == current_file.name]
         if cur_rows:
             df = pd.DataFrame(cur_rows).drop_duplicates("line_id", keep="last")
