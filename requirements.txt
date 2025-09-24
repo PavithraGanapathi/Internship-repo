@@ -1,8 +1,10 @@
-python-multipart
-PyMuPDF==1.23.22
-pillow
 streamlit
-opencv-python
+opencv-python-headless
+pandas
 numpy
-pytesseract
+Pillow
+transformers
+torch
 pdf2image
+PyMuPDF
+pymupdf
