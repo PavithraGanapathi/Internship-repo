@@ -7,11 +7,10 @@ import pandas as pd
 import cv2
 from typing import List
 import os
-import shutil  # <-- added for zipping
+import shutil  # for zipping
 
-# --- DATASET FOLDER (Desktop with per-paper subfolders) ---
-desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-dataset_folder = os.path.join(desktop, "dataset")
+# --- DATASET FOLDER (project directory, works on cloud & local) ---
+dataset_folder = os.path.join(os.getcwd(), "dataset")
 os.makedirs(dataset_folder, exist_ok=True)
 
 def get_paper_folder(filename: str) -> str:
@@ -19,11 +18,10 @@ def get_paper_folder(filename: str) -> str:
     Create a subfolder inside dataset for each uploaded PDF.
     Example: dataset/myfile.pdf -> dataset/myfile
     """
-    base_name = os.path.splitext(filename)[0]  # remove .pdf
+    base_name = os.path.splitext(filename)[0]
     paper_folder = os.path.join(dataset_folder, base_name)
     os.makedirs(paper_folder, exist_ok=True)
     return paper_folder
-                 # create if not exists
 
 # --- ZIP DOWNLOAD FUNCTION ---
 def make_download_button(pdf_filename):
@@ -31,18 +29,21 @@ def make_download_button(pdf_filename):
     base_name = os.path.splitext(pdf_filename)[0]
     paper_folder = os.path.join(dataset_folder, base_name)
 
+    if not os.path.exists(paper_folder):
+        st.error(f"❌ Folder not found: {paper_folder}")
+        return
+
     # Full path for zip file (inside dataset folder)
     zip_base = os.path.join(dataset_folder, base_name)
 
-    # Correct way: pass parent dir as root_dir, and folder name as base_dir
+    # Create zip (parent = dataset, child = base_name folder)
     zip_path = shutil.make_archive(
-        base_name=zip_base,   # where zip will be created
+        base_name=zip_base,
         format="zip",
-        root_dir=dataset_folder,  # parent directory
-        base_dir=base_name        # folder to compress
+        root_dir=dataset_folder,
+        base_dir=base_name
     )
 
-    # Provide download button
     with open(zip_path, "rb") as f:
         st.download_button(
             f"Download Cropped Images for {pdf_filename}",
@@ -50,7 +51,6 @@ def make_download_button(pdf_filename):
             file_name=f"{base_name}.zip",
             mime="application/zip"
         )
-
 
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
@@ -274,4 +274,3 @@ else:
         ---
         """
     )
-
