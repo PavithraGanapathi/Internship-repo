@@ -30,22 +30,25 @@ def get_paper_folder(filename: str) -> str:
 import shutil, base64, os
 
 def make_download_button(pdf_name: str):
-    # Create the paper folder if not exists
+    import shutil, base64, os
     base_name = os.path.splitext(os.path.basename(pdf_name))[0]
-    paper_folder = os.path.join("dataset", base_name)
+    dataset_folder = "dataset"
+    paper_folder = os.path.join(dataset_folder, base_name)
     os.makedirs(paper_folder, exist_ok=True)
 
-    # Create the zip file
+    # Zip must be created outside the folder
+    zip_base = os.path.join(dataset_folder, base_name)  # dataset/myfile
     zip_path = shutil.make_archive(
-        base_name=paper_folder,  # zip will be created here
+        base_name=zip_base,       # where the .zip will be placed
         format="zip",
-        root_dir=paper_folder    # folder to compress
+        root_dir=dataset_folder,  # parent folder
+        base_dir=base_name        # folder inside dataset to compress
     )
 
-    # Read zip as base64 and create download link
+    # Make download button
     with open(zip_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-    href = f'<a href="data:application/zip;base64,{b64}" download="{os.path.basename(zip_path)}">📥 Download Segmented Lines + OCR</a>'
+    href = f'<a href="data:application/zip;base64,{b64}" download="{os.path.basename(zip_path)}">📥 Download Cropped Images</a>'
     st.markdown(href, unsafe_allow_html=True)
 
 
@@ -271,4 +274,5 @@ else:
         ---
         """
     )
+
 
