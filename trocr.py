@@ -52,6 +52,7 @@ def make_download_button(pdf_name: str):
     st.markdown(href, unsafe_allow_html=True)
 
 
+
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
 
@@ -274,5 +275,6 @@ else:
         ---
         """
     )
+
 
 
