@@ -31,8 +31,16 @@ def make_download_button(pdf_filename):
     base_name = os.path.splitext(pdf_filename)[0]
     paper_folder = os.path.join(dataset_folder, base_name)
 
-    # Create a zip only for this PDF's folder
-    zip_path = shutil.make_archive(base_name, 'zip', paper_folder)
+    # Full path for zip file (inside dataset folder)
+    zip_base = os.path.join(dataset_folder, base_name)
+
+    # Correct way: pass parent dir as root_dir, and folder name as base_dir
+    zip_path = shutil.make_archive(
+        base_name=zip_base,   # where zip will be created
+        format="zip",
+        root_dir=dataset_folder,  # parent directory
+        base_dir=base_name        # folder to compress
+    )
 
     # Provide download button
     with open(zip_path, "rb") as f:
@@ -42,6 +50,7 @@ def make_download_button(pdf_filename):
             file_name=f"{base_name}.zip",
             mime="application/zip"
         )
+
 
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
@@ -265,3 +274,4 @@ else:
         ---
         """
     )
+
