@@ -26,30 +26,6 @@ def get_paper_folder(filename: str) -> str:
     return paper_folder
                  # create if not exists
 
-# --- ZIP DOWNLOAD FUNCTION ---
-import shutil, base64, os
-
-def make_download_button(pdf_name: str):
-    import shutil, base64, os
-    base_name = os.path.splitext(os.path.basename(pdf_name))[0]
-    dataset_folder = "dataset"
-    paper_folder = os.path.join(dataset_folder, base_name)
-    os.makedirs(paper_folder, exist_ok=True)
-
-    # Zip must be created outside the folder
-    zip_base = os.path.join(dataset_folder, base_name)  # dataset/myfile
-    zip_path = shutil.make_archive(
-        base_name=zip_base,       # where the .zip will be placed
-        format="zip",
-        root_dir=dataset_folder,  # parent folder
-        base_dir=base_name        # folder inside dataset to compress
-    )
-
-    # Make download button
-    with open(zip_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    href = f'<a href="data:application/zip;base64,{b64}" download="{os.path.basename(zip_path)}">📥 Download Cropped Images</a>'
-    st.markdown(href, unsafe_allow_html=True)
 
 
 
@@ -258,6 +234,27 @@ if current_file:
                 file_name=f"{current_file.name}_labeled_output.csv",
                 mime="text/csv"
             )
+            # ✅ ZIP download (correct version)
+            import zipfile
+            from io import BytesIO
+            zip_buffer = BytesIO()
+    
+            with zipfile.ZipFile(zip_buffer, "w") as zipf:
+                for entry in cur_rows:
+                    img_path = entry["image_path"]
+                    if os.path.exists(img_path):
+                        zipf.write(img_path, arcname=os.path.basename(img_path))
+    
+            zip_buffer.seek(0)
+    
+            st.download_button(
+                label="Download Cropped Images (ZIP)",
+                data=zip_buffer,
+                file_name=f"{current_file.name}_cropped_images.zip",
+                mime="application/zip"
+            )
+            
+            
 
 else:
     st.markdown("## Welcome to the OCR Labeling Tool")
@@ -275,6 +272,7 @@ else:
         ---
         """
     )
+    
 
 
 
