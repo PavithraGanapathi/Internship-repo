@@ -1,4 +1,3 @@
-
 import streamlit as st
 import fitz  # PyMuPDF
 import numpy as np
@@ -8,7 +7,6 @@ import pandas as pd
 import cv2
 from typing import List
 import os
-import shutil  # <-- added for zipping
 
 # --- DATASET FOLDER (Desktop with per-paper subfolders) ---
 desktop = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -24,10 +22,6 @@ def get_paper_folder(filename: str) -> str:
     paper_folder = os.path.join(dataset_folder, base_name)
     os.makedirs(paper_folder, exist_ok=True)
     return paper_folder
-                 # create if not exists
-
-
-
 
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Handwritten OCR Labeling Tool", layout="wide")
@@ -206,8 +200,27 @@ if current_file:
 
         progress_placeholder.empty()  # Remove progress bar when done
 
-        # --- ZIP DOWNLOAD BUTTON FOR CROPPED IMAGES ---
-        make_download_button(current_file.name)
+        # --- ZIP DOWNLOAD BUTTON FOR CROPPED IMAGES (corrected) ---
+        if st.session_state.labeled_lines:
+            cur_rows = [r for r in st.session_state.labeled_lines if r["filename"] == current_file.name]
+            if cur_rows:
+                import zipfile
+                from io import BytesIO
+
+                zip_buffer = BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w") as zipf:
+                    for entry in cur_rows:
+                        img_path = entry["image_path"]
+                        if os.path.exists(img_path):
+                            zipf.write(img_path, arcname=os.path.basename(img_path))
+
+                zip_buffer.seek(0)
+                st.download_button(
+                    label="Download Cropped Images (ZIP)",
+                    data=zip_buffer,
+                    file_name=f"{current_file.name}_cropped_images.zip",
+                    mime="application/zip"
+                )
 
         # --- LINE SET NAVIGATION ---
         if not st.session_state.show_all_lines:
@@ -234,27 +247,6 @@ if current_file:
                 file_name=f"{current_file.name}_labeled_output.csv",
                 mime="text/csv"
             )
-            # ✅ ZIP download (correct version)
-            import zipfile
-            from io import BytesIO
-            zip_buffer = BytesIO()
-    
-            with zipfile.ZipFile(zip_buffer, "w") as zipf:
-                for entry in cur_rows:
-                    img_path = entry["image_path"]
-                    if os.path.exists(img_path):
-                        zipf.write(img_path, arcname=os.path.basename(img_path))
-    
-            zip_buffer.seek(0)
-    
-            st.download_button(
-                label="Download Cropped Images (ZIP)",
-                data=zip_buffer,
-                file_name=f"{current_file.name}_cropped_images.zip",
-                mime="application/zip"
-            )
-            
-            
 
 else:
     st.markdown("## Welcome to the OCR Labeling Tool")
@@ -272,7 +264,4 @@ else:
         ---
         """
     )
-    
-
-
 
